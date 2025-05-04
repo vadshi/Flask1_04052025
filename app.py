@@ -65,6 +65,15 @@ def get_params(value: str):
 # ...
 # /quotes/n-1
 # /quotes/n
+@app.get("/quotes/<int:quote_id>")
+def get_quote_by_id(quote_id: int):
+    """ Return quote by id from 'quotes' list."""
+    for quote in quotes:
+        if quote["id"] == quote_id:
+            return jsonify(quote), 200
+    return jsonify(error=f"Quote with id={quote_id} not found"), 404
+
+
 
 if __name__ == "__main__":
     app.run(debug=True)
