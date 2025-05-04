@@ -1,4 +1,6 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
+from random import choice
+
 
 app = Flask(__name__)
 app.json.ensure_ascii = False
@@ -56,6 +58,11 @@ def get_quotes():
 @app.get("/params/<value>")
 def get_params(value: str):
     """ Пример динамического URL'a."""
+    # print(vars(request))
+    print(f'{request.path}')
+    print(f'{request.url}')
+    # print(f'{request.json}')  # Словарь с данными из тела запроса
+    print(f'{request.args}')  # Словарь с данными(query parameters)
     return jsonify(param=value, value_type=str(type(value))), 200
 
 
@@ -73,6 +80,17 @@ def get_quote_by_id(quote_id: int):
             return jsonify(quote), 200
     return jsonify(error=f"Quote with id={quote_id} not found"), 404
 
+
+@app.get("/quotes/count")
+def get_quotes_count() -> int:
+    """ Return count of quotes """
+    return {"count": len(quotes)}
+
+
+@app.get("/quotes/random")
+def get_random_quotes():
+    """ Return random quote."""
+    return jsonify(choice(quotes))
 
 
 if __name__ == "__main__":
