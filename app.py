@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, jsonify
 
 app = Flask(__name__)
 app.json.ensure_ascii = False
@@ -15,12 +15,12 @@ about_me = {
 def hello_world(): 
     """ Это функция-обработчик, которая будет 
         вызвана приложением для обработки URL'a. """
-    return "Hello, Students!"
+    return jsonify(hello="Hello, Students!"), 200
 
 
 @app.route("/about")
 def about():
-   return about_me
+   return jsonify(about_me), 200
 
 
 if __name__ == "__main__":
