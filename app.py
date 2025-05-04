@@ -53,5 +53,18 @@ def get_quotes():
     return jsonify(quotes)
 
 
+@app.get("/params/<value>")
+def get_params(value: str):
+    """ Пример динамического URL'a."""
+    return jsonify(param=value, value_type=str(type(value))), 200
+
+
+# /quotes/1
+# /quotes/2
+# /quotes/3
+# ...
+# /quotes/n-1
+# /quotes/n
+
 if __name__ == "__main__":
     app.run(debug=True)
