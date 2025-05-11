@@ -26,13 +26,13 @@ sudo apt install sqlite3
 ```
 2. Создать дамп БД (схема + данные): 
 ```
-sqlite3 store.db .dump > sqlite_examples/storedb_dump.sql
+sqlite3 store.db .dump > db_sql/db_data.sql
 ```
 3. Создать дамп БД (только схема): 
 ```
-sqlite3 store.db ".schema quotes" > sqlite_examples/storedb_schema.sql
+sqlite3 store.db ".schema quotes" > db_sql/db_schema.sql
 ```
 4. Загрузить данные в БД: 
 ```
-sqlite3 new_store.db ".read sqlite_examples/storedb_dump.sql"
+sqlite3 new_store.db ".read db_sql/db_data.sql"
 ```
