@@ -69,9 +69,8 @@ def get_quotes():
 @app.get("/quotes/<int:quote_id>")
 def get_quote_by_id(quote_id: int):
     """ Return quote by id from db."""
-    cursor = get_db().cursor()
-    cursor.execute("SELECT * FROM quotes WHERE id=?", (quote_id,)) # tuple with one element
-    quote = cursor.fetchone() # now get dict
+    quote_select = "SELECT * FROM quotes WHERE id=?"
+    quote = query_db(quote_select, (quote_id,), one=True)
     if quote:
         return jsonify(quote), 200
     return jsonify(error=f"Quote with id={quote_id} not found"), 404
@@ -82,8 +81,8 @@ def get_quotes_count() -> int:
     """ Return count of quotes in db."""
     quantity_select = """SELECT COUNT(*) as count FROM quotes"""
     cursor = get_db().cursor()
-    count = cursor.execute(quantity_select).fetchone()['count']
-    return {"count": count}, 200
+    count = cursor.execute(quantity_select).fetchone()
+    return jsonify(count), 200
 
 
 @app.post("/quotes")
@@ -96,13 +95,13 @@ def create_quote():
         conn = get_db()
         cursor = conn.cursor()
         cursor.execute(insert_quote, tuple(new_quote.values()))
-        new_quote['id'] = cursor.lastrowid
         try:
             conn.commit()
         except Exception as e:
             conn.rollback()
             abort(503, f"error: {str(e)}")
         else:
+            new_quote['id'] = cursor.lastrowid
             return jsonify(new_quote), 201
     
     return jsonify(result[1]), 400
@@ -111,14 +110,34 @@ def create_quote():
 
 @app.put("/quotes/<int:quote_id>")
 def edit_quote(quote_id: int):
+    """Update an existing quote"""
     new_data = request.json
-#   # Проверяем корректность рейтинга
-#                     new_data.pop('rating')                   
-#                 quote.update(new_data)
-#                 return jsonify(quote), 200
-#     else:
-#         return jsonify(error="Send bad data to update"), 400
-    return jsonify({"error": f"Quote with id={quote_id} not found"}), 404
+    result = check(new_data, check_rating=True)
+    if not result[0]:
+        return jsonify(result[1]), 400
+    
+    conn = get_db()
+    cursor = conn.cursor()
+
+    # Создаем кортеж значений для подстановки и список строк из полей для обновления
+    update_values = list(new_data.values())
+    update_fieds = [f'{key} = ?' for key in new_data]
+
+    if not update_fieds:
+        return jsonify(error="No valid update fields provided."), 400
+    
+
+    update_values.append(quote_id)
+    update_query = f""" UPDATE quotes SET {', '.join(update_fieds)} WHERE id = ? """
+    cursor.execute(update_query, update_values)
+
+    if cursor.rowcount == 0:
+        return jsonify({"error": f"Quote with id={quote_id} not found"}), 404
+    
+    response, status_code = get_quote_by_id(quote_id)
+    if status_code == 200:
+        return response, 200
+    abort(404, {"error": f"Quote with id={quote_id} not found"})
 
 
 @app.route("/quotes/<int:quote_id>", methods=['DELETE'])
@@ -133,6 +152,8 @@ def delete_quote(quote_id):
     return jsonify({"message": f"Quote with id {quote_id} has deleted."}), 200
     
 
+# Homework
+# TODO: change filter endpoint to work with db
 
 # @app.route("/quotes/filter", methods=['GET'])
 # def filter_quotes():
