@@ -1,75 +1,73 @@
 from flask import Flask, jsonify, request
 from random import choice
+from pathlib import Path
+import sqlite3
 
+BASE_DIR = Path(__file__).parent
+path_to_db = BASE_DIR / "store.db"  # <- тут путь к БД
+
+# Создаем соедниение
+connection = sqlite3.connect(path_to_db)
 
 app = Flask(__name__)
 app.json.ensure_ascii = False
 
 KEYS = ('author', 'text', 'rating')
 
-about_me = {
-   "name": "Вадим",
-   "surname": "Шиховцов",
-   "email": "vshihovcov@specialist.ru"
-}
+# about_me = {
+#    "name": "Вадим",
+#    "surname": "Шиховцов",
+#    "email": "vshihovcov@specialist.ru"
+# }
 
-quotes = [
-   {
-       "id": 3,
-       "author": "Rick Cook",
-       "text": "Программирование сегодня — это гонка разработчиков программ, стремящихся писать программы с большей и лучшей идиотоустойчивостью, и вселенной, которая пытается создать больше отборных идиотов. Пока вселенная побеждает.",
-       "rating": 4
-   },
-   {
-       "id": 5,
-       "author": "Waldi Ravens",
-       "text": "Программирование на С похоже на быстрые танцы на только что отполированном полу людей с острыми бритвами в руках.",
-       "rating": 3
-   },
-   {
-       "id": 6,
-       "author": "Mosher's Law of Software Engineering",
-       "text": "Не волнуйтесь, если что-то не работает. Если бы всё работало, вас бы уволили.",
-       "rating": 4
-   },
-   {
-       "id": 8,
-       "author": "Yoggi Berra",
-       "text": "В теории, теория и практика неразделимы. На практике это не так.",
-       "rating": 2
+# quotes = [
+#    {
+#        "id": 3,
+#        "author": "Rick Cook",
+#        "text": "Программирование сегодня — это гонка разработчиков программ, стремящихся писать программы с большей и лучшей идиотоустойчивостью, и вселенной, которая пытается создать больше отборных идиотов. Пока вселенная побеждает.",
+#        "rating": 4
+#    },
+#    {
+#        "id": 5,
+#        "author": "Waldi Ravens",
+#        "text": "Программирование на С похоже на быстрые танцы на только что отполированном полу людей с острыми бритвами в руках.",
+#        "rating": 3
+#    },
+#    {
+#        "id": 6,
+#        "author": "Mosher's Law of Software Engineering",
+#        "text": "Не волнуйтесь, если что-то не работает. Если бы всё работало, вас бы уволили.",
+#        "rating": 4
+#    },
+#    {
+#        "id": 8,
+#        "author": "Yoggi Berra",
+#        "text": "В теории, теория и практика неразделимы. На практике это не так.",
+#        "rating": 2
        
-   },
+#    },
 
-]
-
-
-@app.route("/") # Это первый URL, который мы будет обрабатывать
-def hello_world(): 
-    """ Это функция-обработчик, которая будет 
-        вызвана приложением для обработки URL'a. """
-    return jsonify(hello="Hello, Students!"), 200
-
-
-@app.route("/about")
-def about():
-   return jsonify(about_me), 200
-
+# ]
 
 @app.get("/quotes")
 def get_quotes():
-    """ Функция преобразует список словарей в массив объектов JSON. """
-    return jsonify(quotes)
-
-
-@app.get("/params/<value>")
-def get_params(value: str):
-    """ Пример динамического URL'a."""
-    # print(vars(request))
-    print(f'{request.path}')
-    print(f'{request.url}')
-    # print(f'{request.json}')  # Словарь с данными из тела запроса
-    print(f'{request.args}')  # Словарь с данными(query parameters)
-    return jsonify(param=value, value_type=str(type(value))), 200
+    """ Функция возвращает все цитаты из БД. """
+    select_quotes = "SELECT * from quotes"
+    connection = sqlite3.connect("store.db")
+    cursor = connection.cursor()
+    cursor.execute(select_quotes)
+    quotes_db = cursor.fetchall() # get list[tuple]
+    cursor.close()
+    connection.close()
+    # Подготовка данных для отправки в правильной формате.
+    # Необходимо выполнить преобразование:
+    # list[tuple] -> list[dict]
+    keys = ('id', 'author', 'text')
+    quotes = []
+    for quote_db in quotes_db:
+        quote = dict(zip(keys, quote_db))
+        quotes.append(quote)
+    return jsonify(quotes), 200
 
 
 @app.get("/quotes/<int:quote_id>")
