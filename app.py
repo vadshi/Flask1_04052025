@@ -66,12 +66,6 @@ def get_params(value: str):
     return jsonify(param=value, value_type=str(type(value))), 200
 
 
-# /quotes/1
-# /quotes/2
-# /quotes/3
-# ...
-# /quotes/n-1
-# /quotes/n
 @app.get("/quotes/<int:quote_id>")
 def get_quote_by_id(quote_id: int):
     """ Return quote by id from 'quotes' list."""
@@ -91,6 +85,52 @@ def get_quotes_count() -> int:
 def get_random_quotes():
     """ Return random quote."""
     return jsonify(choice(quotes))
+
+
+def generate_new_id():
+    """New id для цитаты"""
+    if not quotes:
+        return 1
+    return quotes[-1]["id"] + 1
+
+
+@app.route("/quotes", methods=['POST'])
+def create_quote():
+    """ Function creates new quote and adds it to the list of quotes"""
+    new_quote = request.json
+    new_id = generate_new_id()
+    new_quote["id"]= new_id
+    new_quote["rating"] = new_quote.get("rating", 1)
+    if new_quote["rating"] < 1 or new_quote["rating"] > 5:
+        new_quote["rating"] = 1  # Если некорректный рейтинг(например 10), то оставляем без изменений или устанавливаем значение по умолчанию.
+    quotes.append(new_quote)
+    return jsonify(new_quote), 201
+
+
+@app.route("/quotes/<int:quote_id>", methods=['PUT'])
+def edit_quote(quote_id):
+    new_data = request.json
+    keys = ('author', 'text', 'rating')
+    if not set(new_data.keys()) - set(keys):
+        for quote in quotes:
+            if quote["id"] == quote_id:
+                if "rating" in new_data and new_data['rating'] not in range(1, 6):  # Проверяем корректность рейтинга
+                    new_data.pop('rating')                   
+                quote.update(new_data)
+                return jsonify(quote), 200
+    else:
+        return jsonify(error="Send bad data to update"), 400
+    return jsonify({"error": f"Quote with id={quote_id} not found"}), 404
+
+
+@app.route("/quotes/<int:quote_id>", methods=['DELETE'])
+def delete_quote(quote_id):
+    """Удаление цитат"""
+    for i, quote in enumerate(quotes):
+        if quote["id"] == quote_id:
+            del quotes[i]
+            return jsonify({"message": f"Quote with id {quote_id} is deleted."}), 200
+    return jsonify({"error": "Quote not found"}), 404
 
 
 if __name__ == "__main__":
