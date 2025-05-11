@@ -5,6 +5,7 @@ from random import choice
 app = Flask(__name__)
 app.json.ensure_ascii = False
 
+KEYS = ('author', 'text', 'rating')
 
 about_me = {
    "name": "Вадим",
@@ -16,22 +17,27 @@ quotes = [
    {
        "id": 3,
        "author": "Rick Cook",
-       "text": "Программирование сегодня — это гонка разработчиков программ, стремящихся писать программы с большей и лучшей идиотоустойчивостью, и вселенной, которая пытается создать больше отборных идиотов. Пока вселенная побеждает."
+       "text": "Программирование сегодня — это гонка разработчиков программ, стремящихся писать программы с большей и лучшей идиотоустойчивостью, и вселенной, которая пытается создать больше отборных идиотов. Пока вселенная побеждает.",
+       "rating": 4
    },
    {
        "id": 5,
        "author": "Waldi Ravens",
-       "text": "Программирование на С похоже на быстрые танцы на только что отполированном полу людей с острыми бритвами в руках."
+       "text": "Программирование на С похоже на быстрые танцы на только что отполированном полу людей с острыми бритвами в руках.",
+       "rating": 3
    },
    {
        "id": 6,
        "author": "Mosher's Law of Software Engineering",
-       "text": "Не волнуйтесь, если что-то не работает. Если бы всё работало, вас бы уволили."
+       "text": "Не волнуйтесь, если что-то не работает. Если бы всё работало, вас бы уволили.",
+       "rating": 4
    },
    {
        "id": 8,
        "author": "Yoggi Berra",
-       "text": "В теории, теория и практика неразделимы. На практике это не так."
+       "text": "В теории, теория и практика неразделимы. На практике это не так.",
+       "rating": 2
+       
    },
 
 ]
@@ -98,20 +104,20 @@ def generate_new_id():
 def create_quote():
     """ Function creates new quote and adds it to the list of quotes"""
     new_quote = request.json
-    new_id = generate_new_id()
-    new_quote["id"]= new_id
-    new_quote["rating"] = new_quote.get("rating", 1)
-    if new_quote["rating"] < 1 or new_quote["rating"] > 5:
-        new_quote["rating"] = 1  # Если некорректный рейтинг(например 10), то оставляем без изменений или устанавливаем значение по умолчанию.
-    quotes.append(new_quote)
+    if not set(new_quote.keys()) - set(KEYS):
+        new_id = generate_new_id()
+        new_quote["id"]= new_id
+        new_quote["rating"] = 1
+        quotes.append(new_quote)
+    else:
+        return jsonify(error="Send bad data to create new quote"), 400
     return jsonify(new_quote), 201
 
 
 @app.route("/quotes/<int:quote_id>", methods=['PUT'])
 def edit_quote(quote_id):
     new_data = request.json
-    keys = ('author', 'text', 'rating')
-    if not set(new_data.keys()) - set(keys):
+    if not set(new_data.keys()) - set(KEYS):
         for quote in quotes:
             if quote["id"] == quote_id:
                 if "rating" in new_data and new_data['rating'] not in range(1, 6):  # Проверяем корректность рейтинга
@@ -133,5 +139,41 @@ def delete_quote(quote_id):
     return jsonify({"error": "Quote not found"}), 404
 
 
+@app.route("/quotes/filter", methods=['GET'])
+def filter_quotes():
+    """Поиск по фильтру"""
+    author = request.args.get('author')
+    rating = request.args.get('rating')
+    filtered_quotes = quotes[:]
+
+    if author:
+        filtered_quotes = [quote for quote in filtered_quotes if quote['author'] == author]
+    if rating:
+        filtered_quotes = [quote for quote in filtered_quotes if str(quote['rating']) == rating]
+
+    return jsonify(filtered_quotes), 200
+
+
+@app.route("/quotes/filter_v2", methods=['GET'])
+def filter_quotes_v2():
+    """Поиск по фильтру"""
+    filtered_quotes = quotes.copy()
+    # Цикл по query parameters
+    for key, value in request.args.items():
+        result = []
+        if key not in KEYS:
+            return jsonify(error=f"Invalid param={value}"), 400
+        if key == 'rating':
+            value = int(value)
+        for quote in filtered_quotes:
+            if quote[key] == value:
+                result.append(quote)     
+        filtered_quotes = result.copy()
+
+    return jsonify(filtered_quotes), 200
+
+
 if __name__ == "__main__":
     app.run(debug=True)
+
+
