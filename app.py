@@ -6,6 +6,7 @@ from sqlalchemy.orm import DeclarativeBase
 
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy import String, func
+from sqlalchemy.exc import SQLAlchemyError   
 
 
 class Base(DeclarativeBase):
@@ -156,19 +157,15 @@ def edit_quote(quote_id: int):
 @app.route("/quotes/<int:quote_id>", methods=['DELETE'])
 def delete_quote(quote_id):
     """Delete quote by id """
-    delete_quote = "DELETE FROM quotes WHERE id=?"
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute(delete_quote, (quote_id, ))
+    quote = db.get_or_404(entity=QuoteModel, ident=quote_id, description=f"Quote with id={quote_id} not found")
+    db.session.delete(quote)
     try:
-        conn.commit()
-    except Exception as e:
-        conn.rollback()
-        abort(503, f"error: {str(e)}")
-
-    if cursor.rowcount == 0:
-        return jsonify({"error": f"Quote with id={quote_id} not found"}), 404
-    return jsonify({"message": f"Quote with id {quote_id} has deleted."}), 200
+        db.session.commit()
+        return jsonify({"message": f"Quote with id {quote_id} has deleted."}), 200
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        abort(503, f"Database error: {str(e)}")
+    
     
 
 # Homework
