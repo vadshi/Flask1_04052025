@@ -102,23 +102,17 @@ def get_quotes_count() -> int:
 @app.post("/quotes")
 def create_quote():
     """ Function creates new quote and adds it to db."""
-    if (result := check(request.json))[0]:
-        new_quote = result[1]
-        new_quote["rating"] = 1
-        insert_quote = "INSERT INTO quotes (author, text, rating) VALUES (?, ?, ?)"
-        conn = get_db()
-        cursor = conn.cursor()
-        cursor.execute(sql=insert_quote, parameters=tuple(new_quote.values()))
-        try:
-            conn.commit()
-        except Exception as e:
-            conn.rollback()
-            abort(503, f"error: {str(e)}")
-        else:
-            new_quote['id'] = cursor.lastrowid
-            return jsonify(new_quote), 201
+    data = request.json
+    try:
+        quote = QuoteModel(**data)
+        db.session.add(quote)
+        db.session.commit()
+    except TypeError:
+        abort(400, f'Invalid data. Required: <author> and <text>. Received: {', '.join(data.keys())}')
+    except Exception as e:
+        abort(503, f"Database error: {str(e)}")
     
-    return jsonify(result[1]), 400
+    return jsonify(quote.to_dict()), 201
     
 
 
