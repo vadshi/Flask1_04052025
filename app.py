@@ -57,7 +57,7 @@ query_db = get_db = lambda : ...
 
 
 def check(data: dict, check_rating=False) -> tuple[bool, dict]:
-    keys = ('author', 'text', 'rating')
+    keys = ('author', 'text')
     if check_rating:
         rating = data.get('rating')    
         if rating and rating not in range(1, 6):
@@ -119,39 +119,23 @@ def create_quote():
 
 @app.put("/quotes/<int:quote_id>")
 def edit_quote(quote_id: int):
-    """Update an existing quote"""
+    """ Update an existing quote """
     new_data = request.json
     result = check(new_data, check_rating=True)
     if not result[0]:
-        return jsonify(result[1]), 400
+        return abort(400, result[1].get('error'))
     
-    conn = get_db()
-    cursor = conn.cursor()
+    quote = db.get_or_404(entity=QuoteModel, ident=quote_id, description=f"Quote with id={quote_id} not found")
 
-    # Создаем кортеж значений для подстановки и список строк из полей для обновления
-    update_values = list(new_data.values())
-    update_fieds = [f'{key} = ?' for key in new_data]
-
-    if not update_fieds:
-        return jsonify(error="No valid update fields provided."), 400
-    
-
-    update_values.append(quote_id)
-    update_query = f""" UPDATE quotes SET {', '.join(update_fieds)} WHERE id = ? """
-    cursor.execute(update_query, update_values)
     try:
-        conn.commit()
-    except Exception as e:
-        conn.rollback()
-        abort(503, f"error: {str(e)}")
+        for key_as_attr, value in new_data.items():
+            setattr(quote, key_as_attr, value)
 
-    if cursor.rowcount == 0:
-        return jsonify({"error": f"Quote with id={quote_id} not found"}), 404
-    
-    response, status_code = get_quote_by_id(quote_id)
-    if status_code == 200:
-        return response, 200
-    abort(404, {"error": f"Quote with id={quote_id} not found"})
+        db.session.commit()
+        return jsonify(quote.to_dict()), 200
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        abort(503, f"Database error: {str(e)}")
 
 
 @app.route("/quotes/<int:quote_id>", methods=['DELETE'])
