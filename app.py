@@ -94,7 +94,7 @@ def add_to_db(cls, data):
         db.session.add(new_instance)
         db.session.commit()
     except TypeError:
-        abort(400, f'Invalid data. Required: <name>. Received: {', '.join(data.keys())}')
+        abort(400, f"Invalid data. Required: <name>. Received: {', '.join(data.keys())}")
     except Exception as e:
         abort(503, f"Database error: {str(e)}")
     return jsonify(new_instance.to_dict()), 201
@@ -110,7 +110,7 @@ def create_author():
         db.session.add(author)
         db.session.commit()
     except TypeError:
-        abort(400, f'Invalid data. Required: <name>. Received: {', '.join(author_data.keys())}')
+        abort(400, f"Invalid data. Required: <name>. Received: {', '.join(author_data.keys())}")
     except Exception as e:
         abort(503, f"Database error: {str(e)}")
     return jsonify(author.to_dict()), 201
@@ -171,7 +171,7 @@ def create_quote():
         db.session.add(quote)
         db.session.commit()
     except TypeError:
-        abort(400, f'Invalid data. Required: <author> and <text>. Received: {', '.join(data.keys())}')
+        abort(400, f"Invalid data. Required: <author> and <text>. Received: {', '.join(data.keys())}")
     except Exception as e:
         abort(503, f"Database error: {str(e)}")
     
@@ -219,7 +219,7 @@ def filter_quotes():
     try:
         quotes = db.session.scalars(db.select(QuoteModel).filter_by(**data)).all()
     except InvalidRequestError:
-        abort(400, f'Invalid data. Required: <author> and <text>. Received: {', '.join(data.keys())}')
+        abort(400, f"Invalid data. Required: <author> and <text>. Received: {', '.join(data.keys())}")
     
     return jsonify([quote.to_dict() for quote in quotes]), 200
 
