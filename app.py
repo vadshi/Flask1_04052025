@@ -34,12 +34,15 @@ class AuthorModel(db.Model):
     __tablename__ = 'authors'
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[int] = mapped_column(String(32), index=True, unique=True)
+    name: Mapped[str] = mapped_column(String(32), index=True, unique=True)
     quotes: Mapped[list['QuoteModel']] = relationship(back_populates='author', lazy='dynamic')
 
     def __init__(self, name):
         self.name = name
 
+    def to_dict(self):
+        return {"id": self.id, "name": self.name}
+    
 
 class QuoteModel(db.Model):
     __tablename__ = 'quotes'
@@ -59,7 +62,7 @@ class QuoteModel(db.Model):
     def to_dict(self):
         return {
             "id": self.id,
-            "author": self.author,
+            "author": self.author.to_dict(),
             "text": self.text
         }
     
@@ -82,6 +85,39 @@ def handle_exception(e):
     return jsonify({"error": str(e)}), e.code
 
 
+def add_to_db(cls, data):
+    """ Function to work with db layer """
+    try:
+        new_instance = cls(**data)
+        db.session.add(new_instance)
+        db.session.commit()
+    except TypeError:
+        abort(400, f'Invalid data. Required: <name>. Received: {', '.join(data.keys())}')
+    except Exception as e:
+        abort(503, f"Database error: {str(e)}")
+    return jsonify(new_instance.to_dict()), 201
+
+
+# ====== Authors endpoints =======
+@app.post("/authors")
+def create_author():
+    author_data = request.json
+    # add_to_db(AuthorModel, author_data)  # Variant 2
+    try:
+        author = AuthorModel(**author_data)
+        db.session.add(author)
+        db.session.commit()
+    except TypeError:
+        abort(400, f'Invalid data. Required: <name>. Received: {', '.join(author_data.keys())}')
+    except Exception as e:
+        abort(503, f"Database error: {str(e)}")
+    return jsonify(author.to_dict()), 201
+
+
+# URL: "/authors/<int:author_id>/quotes"
+
+
+# ====== Quotes endpoints =======
 @app.get("/quotes")
 def get_quotes():
     """ Функция возвращает все цитаты из БД. """
