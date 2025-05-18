@@ -13,7 +13,11 @@ source flask_venv/bin/activate
 ```
 python -m pip install -r requirements.txt
 ```
-4. Запустить приложение
+4. Применить миграции
+```
+flask db migrate
+```
+5. Запустить приложение
 ```
 python app.py
 ```
