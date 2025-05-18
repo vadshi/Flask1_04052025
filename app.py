@@ -1,7 +1,6 @@
 from flask import Flask, abort, jsonify, request, g
-from random import choice
 from pathlib import Path
-
+from werkzeug.exceptions import HTTPException
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
 
@@ -68,6 +67,12 @@ def check(data: dict, check_rating=False) -> tuple[bool, dict]:
     return True, data
          
 
+@app.errorhandler(HTTPException)
+def handle_exception(e):
+    """ Функция для перехвата HTTP ошибок и возврата в виде JSON."""
+    return jsonify({"error": str(e)}), e.code
+
+
 @app.get("/quotes")
 def get_quotes():
     """ Функция возвращает все цитаты из БД. """
@@ -82,11 +87,9 @@ def get_quotes():
 @app.get("/quotes/<int:quote_id>")
 def get_quote_by_id(quote_id: int):
     """ Return quote by id from db."""
-    quote_select = "SELECT * FROM quotes WHERE id=?"
-    quote = query_db(quote_select, (quote_id,), one=True)
-    if quote:
-        return jsonify(quote), 200
-    return jsonify(error=f"Quote with id={quote_id} not found"), 404
+    quote = db.get_or_404(QuoteModel, quote_id, description=f"Quote with id={quote_id} not found")
+    return jsonify(quote.to_dict()), 200
+
 
 
 @app.get("/quotes/count")
