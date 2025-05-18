@@ -5,7 +5,7 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
 
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy import String
+from sqlalchemy import String, func
 
 
 class Base(DeclarativeBase):
@@ -87,7 +87,7 @@ def get_quotes():
 @app.get("/quotes/<int:quote_id>")
 def get_quote_by_id(quote_id: int):
     """ Return quote by id from db."""
-    quote = db.get_or_404(QuoteModel, quote_id, description=f"Quote with id={quote_id} not found")
+    quote = db.get_or_404(entity=QuoteModel, ident=quote_id, description=f"Quote with id={quote_id} not found")
     return jsonify(quote.to_dict()), 200
 
 
@@ -95,10 +95,8 @@ def get_quote_by_id(quote_id: int):
 @app.get("/quotes/count")
 def get_quotes_count() -> int:
     """ Return count of quotes in db."""
-    quantity_select = """SELECT COUNT(*) as count FROM quotes"""
-    cursor = get_db().cursor()
-    count = cursor.execute(quantity_select).fetchone()
-    return jsonify(count), 200
+    count = db.session.scalar(func.count(QuoteModel.id))
+    return jsonify(count=count), 200
 
 
 @app.post("/quotes")
