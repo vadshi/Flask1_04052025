@@ -38,6 +38,18 @@ class QuoteModel(db.Model):
         self.author = author
         self.text  = text
 
+    def __repr__(self):
+        return f'Quote{self.id, self.author}'  # Quote(1, 'Mark Twen')
+    
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "author": self.author,
+            "text": self.text
+        }
+    
+
+
 # ===============================
 #  Функци-заглушки
 query_db = get_db = lambda : ...
@@ -59,8 +71,11 @@ def check(data: dict, check_rating=False) -> tuple[bool, dict]:
 @app.get("/quotes")
 def get_quotes():
     """ Функция возвращает все цитаты из БД. """
-    select_quotes = "SELECT * from quotes"
-    quotes = query_db(select_quotes) # now get list[dict]
+    quotes_db = db.session.scalars(db.select(QuoteModel)).all()
+    # Формируем список словарей
+    quotes = []
+    for quote in quotes_db:
+        quotes.append(quote.to_dict())
     return jsonify(quotes), 200
 
 
