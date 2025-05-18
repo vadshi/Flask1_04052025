@@ -61,8 +61,7 @@ class QuoteModel(db.Model):
     
     def to_dict(self):
         return {
-            "id": self.id,
-            "author": self.author.to_dict(),
+            "quote_id": self.id,
             "text": self.text
         }
     
@@ -115,6 +114,22 @@ def create_author():
 
 
 # URL: "/authors/<int:author_id>/quotes"
+@app.route("/authors/<int:author_id>/quotes", methods=["GET", "POST"])
+def author_quotes(author_id: int):
+    author = db.get_or_404(AuthorModel, author_id, description=f"Author with id={author_id} not found")
+
+    if request.method == "GET":
+        quotes = [quote.to_dict() for quote in author.quotes]
+        return jsonify({"author": author.name} | {"quotes": quotes}), 200
+
+    elif request.method == "POST":
+        data = request.json
+        new_quote = QuoteModel(author, data['text'])
+        db.session.add(new_quote)
+        db.session.commit()
+        return jsonify(new_quote.to_dict() | { "author_id" : author.id}), 201
+    else:
+        abort(405)
 
 
 # ====== Quotes endpoints =======
