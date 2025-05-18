@@ -1,49 +1,47 @@
 from flask import Flask, abort, jsonify, request, g
 from random import choice
 from pathlib import Path
-import sqlite3
+
+from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.orm import DeclarativeBase
+
+from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import String
+
+
+class Base(DeclarativeBase):
+    pass
+
 
 BASE_DIR = Path(__file__).parent
-path_to_db = BASE_DIR / "store.db"  # <- тут путь к БД
+path_to_db = BASE_DIR / "main.db"  # <- тут путь к БД
 
 app = Flask(__name__)
 app.json.ensure_ascii = False
 
+app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{path_to_db}"
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_ECHO'] = False
 
-def make_dicts(cursor, row):
-    """ Create dicts from db results."""
-    return dict((cursor.description[idx][0], value)
-                for idx, value in enumerate(row))
-
-
-def get_db():
-    db = getattr(g, '_database', None)
-    if db is None:
-        db = g._database = sqlite3.connect(path_to_db)
-    db.row_factory = make_dicts
-    return db
+db = SQLAlchemy(model_class=Base)
+db.init_app(app)
 
 
-@app.teardown_appcontext
-def close_connection(exception):
-    db = getattr(g, '_database', None)
-    if db is not None:
-        db.close()
+class QuoteModel(db.Model):
+    __tablename__ = 'quotes'
 
+    id: Mapped[int] = mapped_column(primary_key=True)
+    author: Mapped[str] = mapped_column(String(32))
+    text: Mapped[str] = mapped_column(String(255))
 
-def init_db():
-    with app.app_context():
-        db = get_db()
-        with app.open_resource('./db_sql/db_data.sql', mode='r') as f:
-            db.cursor().executescript(f.read())
-        db.commit()
+    def __init__(self, author, text):
+        self.author = author
+        self.text  = text
 
-
-def query_db(query, args=(), one=False):
-    cur = get_db().execute(query, args)
-    rv = cur.fetchall()
-    cur.close()
-    return (rv[0] if rv else None) if one else rv
+# ===============================
+#  Функци-заглушки
+query_db = get_db = lambda : ...
+# ===============================
 
 
 def check(data: dict, check_rating=False) -> tuple[bool, dict]:
@@ -135,7 +133,7 @@ def edit_quote(quote_id: int):
     except Exception as e:
         conn.rollback()
         abort(503, f"error: {str(e)}")
-        
+
     if cursor.rowcount == 0:
         return jsonify({"error": f"Quote with id={quote_id} not found"}), 404
     
@@ -201,8 +199,6 @@ def delete_quote(quote_id):
 
 
 if __name__ == "__main__":
-    if not path_to_db.exists():
-        init_db()
     app.run(debug=True)
 
 
