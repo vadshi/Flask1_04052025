@@ -2,11 +2,13 @@ from flask import Flask, abort, jsonify, request, g
 from pathlib import Path
 from werkzeug.exceptions import HTTPException
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy import String, func
-from sqlalchemy.exc import SQLAlchemyError   
+from sqlalchemy import String, func, ForeignKey
+from sqlalchemy.exc import SQLAlchemyError, InvalidRequestError
+from flask_migrate import Migrate
+
 
 
 class Base(DeclarativeBase):
@@ -14,7 +16,7 @@ class Base(DeclarativeBase):
 
 
 BASE_DIR = Path(__file__).parent
-path_to_db = BASE_DIR / "main.db"  # <- тут путь к БД
+path_to_db = BASE_DIR / "quotes.db"  # <- тут путь к БД
 
 app = Flask(__name__)
 app.json.ensure_ascii = False
@@ -25,13 +27,26 @@ app.config['SQLALCHEMY_ECHO'] = False
 
 db = SQLAlchemy(model_class=Base)
 db.init_app(app)
+migrate = Migrate(app, db)
+
+
+class AuthorModel(db.Model):
+    __tablename__ = 'authors'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[int] = mapped_column(String(32), index=True, unique=True)
+    quotes: Mapped[list['QuoteModel']] = relationship(back_populates='author', lazy='dynamic')
+
+    def __init__(self, name):
+        self.name = name
 
 
 class QuoteModel(db.Model):
     __tablename__ = 'quotes'
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    author: Mapped[str] = mapped_column(String(32))
+    author_id: Mapped[str] = mapped_column(ForeignKey('authors.id'))
+    author: Mapped['AuthorModel'] = relationship(back_populates='quotes')
     text: Mapped[str] = mapped_column(String(255))
 
     def __init__(self, author, text):
@@ -39,7 +54,7 @@ class QuoteModel(db.Model):
         self.text  = text
 
     def __repr__(self):
-        return f'Quote{self.id, self.author}'  # Quote(1, 'Mark Twen')
+        return f'Quote{self.id, self.author}'  
     
     def to_dict(self):
         return {
@@ -48,13 +63,6 @@ class QuoteModel(db.Model):
             "text": self.text
         }
     
-
-
-# ===============================
-#  Функци-заглушки
-query_db = get_db = lambda : ...
-# ===============================
-
 
 def check(data: dict, check_rating=False) -> tuple[bool, dict]:
     keys = ('author', 'text')
@@ -151,42 +159,15 @@ def delete_quote(quote_id):
         abort(503, f"Database error: {str(e)}")
     
     
-
-# Homework
-# TODO: change filter endpoint to work with db
-
-# @app.route("/quotes/filter", methods=['GET'])
-# def filter_quotes():
-#     """Поиск по фильтру"""
-#     author = request.args.get('author')
-#     rating = request.args.get('rating')
-#     filtered_quotes = quotes[:]
-
-#     if author:
-#         filtered_quotes = [quote for quote in filtered_quotes if quote['author'] == author]
-#     if rating:
-#         filtered_quotes = [quote for quote in filtered_quotes if str(quote['rating']) == rating]
-
-#     return jsonify(filtered_quotes), 200
-
-
-# @app.route("/quotes/filter_v2", methods=['GET'])
-# def filter_quotes_v2():
-#     """Поиск по фильтру"""
-#     filtered_quotes = quotes.copy()
-#     # Цикл по query parameters
-#     for key, value in request.args.items():
-#         result = []
-#         if key not in KEYS:
-#             return jsonify(error=f"Invalid param={value}"), 400
-#         if key == 'rating':
-#             value = int(value)
-#         for quote in filtered_quotes:
-#             if quote[key] == value:
-#                 result.append(quote)     
-#         filtered_quotes = result.copy()
-
-#     return jsonify(filtered_quotes), 200
+@app.route("/quotes/filter", methods=['GET'])
+def filter_quotes():
+    data = request.args # get query parameters from URL
+    try:
+        quotes = db.session.scalars(db.select(QuoteModel).filter_by(**data)).all()
+    except InvalidRequestError:
+        abort(400, f'Invalid data. Required: <author> and <text>. Received: {', '.join(data.keys())}')
+    
+    return jsonify([quote.to_dict() for quote in quotes]), 200
 
 
 if __name__ == "__main__":
