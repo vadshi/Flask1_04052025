@@ -94,7 +94,7 @@ def create_quote():
         insert_quote = "INSERT INTO quotes (author, text, rating) VALUES (?, ?, ?)"
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute(insert_quote, tuple(new_quote.values()))
+        cursor.execute(sql=insert_quote, parameters=tuple(new_quote.values()))
         try:
             conn.commit()
         except Exception as e:
@@ -130,7 +130,12 @@ def edit_quote(quote_id: int):
     update_values.append(quote_id)
     update_query = f""" UPDATE quotes SET {', '.join(update_fieds)} WHERE id = ? """
     cursor.execute(update_query, update_values)
-
+    try:
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        abort(503, f"error: {str(e)}")
+        
     if cursor.rowcount == 0:
         return jsonify({"error": f"Quote with id={quote_id} not found"}), 404
     
@@ -147,6 +152,12 @@ def delete_quote(quote_id):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(delete_quote, (quote_id, ))
+    try:
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        abort(503, f"error: {str(e)}")
+
     if cursor.rowcount == 0:
         return jsonify({"error": f"Quote with id={quote_id} not found"}), 404
     return jsonify({"message": f"Quote with id {quote_id} has deleted."}), 200
